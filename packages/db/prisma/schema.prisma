@@ -1,0 +1,39 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  policies  Policy[]
+}
+
+model Policy {
+  id        String   @id @default(uuid())
+  tenantId  String
+  fileUrl   String
+  createdAt DateTime @default(now())
+
+  chunks    Chunk[]
+}
+
+model Chunk {
+  id        String   @id @default(uuid())
+  policyId  String
+  content   String
+  section   String?
+  page      Int?
+  embeddingId String?
+}
