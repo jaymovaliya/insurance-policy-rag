@@ -1,39 +1,45 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
 }
 
-model Tenant {
-  id        String   @id @default(uuid())
-  name      String
-  createdAt DateTime @default(now())
-
-  policies  Policy[]
+enum PolicyStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
 }
 
 model Policy {
-  id        String   @id @default(uuid())
-  tenantId  String
+  id        String       @id @default(uuid())
+  fileName  String
   fileUrl   String
-  createdAt DateTime @default(now())
+  status    PolicyStatus @default(PENDING)
+  pageCount Int?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
-  chunks    Chunk[]
+  chunks Chunk[]
+
+  @@map("policies")
 }
 
 model Chunk {
-  id        String   @id @default(uuid())
-  policyId  String
-  content   String
-  section   String?
-  page      Int?
-  embeddingId String?
+  id         String @id @default(uuid())
+  policyId   String
+  content    String @db.Text
+  section    String?
+  page       Int?
+  chunkIndex Int
+  tokenCount Int
+
+  policy Policy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@index([policyId])
+  @@map("chunks")
 }
