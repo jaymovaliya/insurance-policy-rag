@@ -1,4 +1,8 @@
 import { Module } from '@nestjs/common';
+import { RetrieverService } from './retriever.service';
 
-@Module({})
+@Module({
+  providers: [RetrieverService],
+  exports: [RetrieverService],
+})
 export class RetrieverModule {}

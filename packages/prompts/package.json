@@ -1,0 +1,14 @@
+{
+  "name": "@repo/prompts",
+  "version": "1.0.0",
+  "description": "RAG System Prompts and Templates",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@repo/embeddings",
+  "version": "1.0.0",
+  "description": "OpenAI Embedding Generation",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@repo/config": "workspace:*",
+    "openai": "^4.28.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}
