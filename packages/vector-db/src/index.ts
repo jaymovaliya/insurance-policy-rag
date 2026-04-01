@@ -2,13 +2,43 @@ import { PrismaService } from '@repo/db';
 import { ChunkData } from '@repo/types';
 
 export class PgVectorService {
+  private isSetup = false;
+
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Ensures the pgvector extension is enabled and the embedding column exists.
+   * Runs once on first use.
+   */
+  private async ensureSetup(): Promise<void> {
+    if (this.isSetup) return;
+
+    // Enable pgvector extension
+    await this.prisma.$executeRawUnsafe(
+      `CREATE EXTENSION IF NOT EXISTS vector`
+    );
+
+    // Add the embedding column if it doesn't exist (Prisma can't manage vector columns)
+    await this.prisma.$executeRawUnsafe(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'chunks' AND column_name = 'embedding'
+        ) THEN
+          ALTER TABLE "chunks" ADD COLUMN "embedding" vector(1536);
+        END IF;
+      END $$;
+    `);
+
+    this.isSetup = true;
+  }
   /**
    * Upserts the embedding vector into the chunks table for a specific chunk ID.
    * This updates the row that Prisma already created with the chunk metadata.
    */
   async upsertEmbedding(chunkId: string, embedding: number[]): Promise<void> {
+    await this.ensureSetup();
     const formattedVector = `[${embedding.join(',')}]`;
     
     // Using raw SQL to update the embedding since Prisma doesn't natively support vector types well yet
@@ -27,6 +57,7 @@ export class PgVectorService {
     policyId: string,
     topK: number = 5
   ): Promise<(ChunkData & { similarity: number })[]> {
+    await this.ensureSetup();
     const formattedVector = `[${queryEmbedding.join(',')}]`;
 
     // 1 - (embedding <=> query) converts the distance operator to a similarity score natively

@@ -5,8 +5,7 @@ import { EmbeddingService } from '@repo/embeddings';
 import { PgVectorService } from '@repo/vector-db';
 import { PolicyStatus } from '@repo/types';
 import { chunkText } from './chunker';
-import * as pdfParseModule from 'pdf-parse';
-const pdfParse = (pdfParseModule as any).default || pdfParseModule;
+import { PDFParse } from 'pdf-parse';
 
 @Injectable()
 export class IngestionService {
@@ -48,10 +47,12 @@ export class IngestionService {
       this.logger.log(`Starting extraction for policy ${policyId}`);
       await this.policyService.updatePolicyStatus(policyId, PolicyStatus.PROCESSING);
 
-      // 2. Extract text natively
-      const parsedData = await pdfParse(pdfBuffer);
-      const text = parsedData.text;
-      const pageCount = parsedData.numpages;
+      // 2. Extract text using pdf-parse v2 class API
+      const parser = new PDFParse({ data: pdfBuffer, verbosity: 0 });
+      const textResult = await parser.getText();
+      const text = textResult.text;
+      const infoResult = await parser.getInfo();
+      const pageCount = infoResult.total ?? 0;
 
       // Update page count early
       await this.policyService.updatePolicyStatus(policyId, PolicyStatus.PROCESSING, pageCount);
@@ -67,21 +68,21 @@ export class IngestionService {
       // 4. Generate embeddings (hitting OpenAI limit can occur if processing huge arrays sequentially, batching recommended)
       // Since it's a test task, we process sequentially or in tiny batches to be safe without rate limits
       this.logger.log(`Generating embeddings for ${chunks.length} chunks...`);
-      
+
       const BATCH_SIZE = 10;
       for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
         const batchChunks = chunks.slice(i, i + BATCH_SIZE);
-        
+
         // Parallel generate for the batch
         const embeddings = await this.embeddingService.generateEmbedding(batchChunks);
-        
+
         // 5. Store chunks and vector embeddings synchronously inside the batch
         for (let j = 0; j < batchChunks.length; j++) {
           const chunkContent = batchChunks[j];
           const embeddingVector = embeddings[j];
-          
-          if(!embeddingVector) continue; // safety check
-          
+
+          if (!embeddingVector) continue; // safety check
+
           const chunkIndex = i + j;
           const tokenCount = Math.ceil(chunkContent.length / 4);
 
@@ -98,7 +99,7 @@ export class IngestionService {
           // Upsert vector into that row
           await this.vectorService.upsertEmbedding(createdChunk.id, embeddingVector);
         }
-        
+
         this.logger.debug(`Processed batch ${i / BATCH_SIZE + 1} for policy ${policyId}`);
       }
 
