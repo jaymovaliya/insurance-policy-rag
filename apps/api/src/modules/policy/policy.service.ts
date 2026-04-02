@@ -62,4 +62,14 @@ export class PolicyService {
       data: { status, pageCount },
     });
   }
+
+  async getMessagesByPolicyId(id: string) {
+    // Check if exists
+    await this.getPolicyById(id);
+    
+    return this.prisma.message.findMany({
+      where: { policyId: id },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
 }

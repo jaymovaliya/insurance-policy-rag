@@ -52,3 +52,12 @@ export interface UploadResponse {
   status: PolicyStatus;
   message: string;
 }
+
+// Chat Types
+export interface MessageData {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  sources?: any;
+  createdAt: string;
+}

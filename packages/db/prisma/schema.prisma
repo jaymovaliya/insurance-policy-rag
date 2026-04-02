@@ -26,6 +26,7 @@ model Policy {
   updatedAt DateTime     @updatedAt
 
   chunks Chunk[]
+  messages Message[]
 
   @@map("policies")
 }
@@ -44,3 +45,18 @@ model Chunk {
   @@index([policyId])
   @@map("chunks")
 }
+
+model Message {
+  id        String   @id @default(uuid())
+  policyId  String
+  role      String   // 'user' | 'assistant'
+  content   String   @db.Text
+  sources   Json?    
+  createdAt DateTime @default(now())
+
+  policy    Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@index([policyId])
+  @@map("messages")
+}
+

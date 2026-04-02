@@ -66,6 +66,19 @@ export const api = {
   },
 
   /**
+   * Fetch chat messages for a specific policy.
+   */
+  async getPolicyMessages(id: string): Promise<any[]> {
+    const response = await fetch(`${API_BASE_URL}/policy/${id}/messages`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch messages');
+    }
+
+    return response.json();
+  },
+
+  /**
    * Query a policy using Semantic RAG.
    */
   async queryRag(request: QueryRequest): Promise<QueryResponse> {

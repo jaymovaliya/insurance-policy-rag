@@ -18,14 +18,51 @@ interface ChatInterfaceProps {
 }
 
 export function ChatInterface({ policyId, fileName }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'greeting',
-      role: 'assistant',
-      content: `Hello! I'm ready to answer questions about your policy **${fileName}**. What would you like to know?`,
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+
+  // Load from API on mount or policyId change
+  useEffect(() => {
+    let isMounted = true;
+    
+    const fetchHistory = async () => {
+      setIsLoadingHistory(true);
+      try {
+        const history = await api.getPolicyMessages(policyId);
+        if (isMounted) {
+          if (history.length === 0) {
+            setMessages([
+              {
+                id: 'greeting',
+                role: 'assistant',
+                content: `Hello! I'm ready to answer questions about your policy **${fileName}**. What would you like to know?`,
+              }
+            ]);
+          } else {
+            setMessages(history);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load chat history', e);
+        if (isMounted) {
+          setMessages([
+            {
+              id: 'greeting',
+              role: 'assistant',
+              content: `Hello! I'm ready to answer questions about your policy **${fileName}**. What would you like to know?`,
+            }
+          ]);
+        }
+      } finally {
+        if (isMounted) setIsLoadingHistory(false);
+      }
+    };
+    
+    fetchHistory();
+
+    return () => { isMounted = false; };
+  }, [policyId, fileName]);
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 

@@ -20,4 +20,9 @@ export class PolicyController {
     await this.policyService.deletePolicy(id);
     return { success: true, message: 'Policy deleted successfully' };
   }
+
+  @Get(':id/messages')
+  async getPolicyMessages(@Param('id') id: string) {
+    return this.policyService.getMessagesByPolicyId(id);
+  }
 }
