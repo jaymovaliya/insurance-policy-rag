@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { UploadDropzone } from '@/components/UploadDropzone';
 import { ChatInterface } from '@/components/ChatInterface';
-import { motion } from 'framer-motion';
-import { FileText, Plus, MessageSquare, Trash2, Loader2, RefreshCw } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FileText, Plus, MessageSquare, Trash2, Loader2, RefreshCw, Menu, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { PolicyMetadata } from '@repo/types';
 
@@ -12,6 +12,20 @@ export default function Home() {
   const [activePolicy, setActivePolicy] = useState<{ id: string; name: string } | null>(null);
   const [policies, setPolicies] = useState<PolicyMetadata[]>([]);
   const [loadingPolicies, setLoadingPolicies] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleNewUploadClick = () => {
+    if (activePolicy) {
+      setActivePolicy(null);
+      // Wait for the UploadDropzone to mount before clicking
+      setTimeout(() => {
+        fileInputRef.current?.click();
+      }, 100);
+    } else {
+      fileInputRef.current?.click();
+    }
+  };
 
   const loadPolicies = async () => {
     try {
@@ -52,23 +66,47 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-theme(spacing.16))] w-full gap-6">
+    <div className="flex h-[calc(100vh-theme(spacing.16))] w-full gap-6 relative overflow-hidden">
+      {/* Backdrop for Mobile Sidebar */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 bg-neutral-900/40 backdrop-blur-sm z-[55] md:hidden"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Sidebar List */}
-      <div className="w-72 hidden md:flex flex-col bg-white rounded-2xl border border-neutral-200 overflow-hidden shrink-0 shadow-sm">
+      <div className={`
+        fixed inset-y-0 left-0 z-[60] w-72 h-full bg-white border-r border-neutral-200 transition-transform duration-300 transform md:relative md:translate-x-0 md:flex md:flex-col md:rounded-2xl md:border md:shadow-sm overflow-hidden shrink-0
+        ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'}
+      `}>
         <div className="p-4 border-b border-neutral-100 flex items-center justify-between">
           <h2 className="font-semibold text-neutral-900 text-sm">Chat History</h2>
-          <button 
-            onClick={loadPolicies}
-            className="p-1.5 text-neutral-400 hover:text-neutral-900 rounded-md hover:bg-neutral-100 transition-colors"
-            title="Refresh policies"
-          >
-            <RefreshCw size={14} className={loadingPolicies ? 'animate-spin' : ''} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={loadPolicies}
+              className="p-1.5 text-neutral-400 hover:text-neutral-900 rounded-md hover:bg-neutral-100 transition-colors"
+              title="Refresh policies"
+            >
+              <RefreshCw size={14} className={loadingPolicies ? 'animate-spin' : ''} />
+            </button>
+            <button 
+              onClick={() => setIsSidebarOpen(false)}
+              className="md:hidden p-1.5 text-neutral-400 hover:text-neutral-900 rounded-md hover:bg-neutral-100 transition-colors"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
         
         <div className="p-4">
           <button 
-            onClick={() => setActivePolicy(null)}
+            onClick={handleNewUploadClick}
             className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-brand-50 text-brand-700 hover:bg-brand-100 rounded-xl transition-colors font-medium text-sm shadow-sm border border-brand-200/50"
           >
             <Plus size={16} />
@@ -89,7 +127,10 @@ export default function Home() {
             policies.map((policy) => (
               <div 
                 key={policy.id}
-                onClick={() => setActivePolicy({ id: policy.id, name: policy.fileName })}
+                onClick={() => {
+                  setActivePolicy({ id: policy.id, name: policy.fileName });
+                  setIsSidebarOpen(false); // Close drawer on selection
+                }}
                 className={`flex items-center justify-between p-3 rounded-xl cursor-pointer group transition-colors ${
                   activePolicy?.id === policy.id 
                     ? 'bg-neutral-100 text-neutral-900 border border-neutral-200/60 shadow-sm' 
@@ -119,7 +160,19 @@ export default function Home() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 h-full flex flex-col bg-white rounded-2xl md:border md:border-neutral-200 md:shadow-sm overflow-hidden">
+      <div className="flex-1 h-full flex flex-col bg-white rounded-2xl md:border md:border-neutral-200 md:shadow-sm overflow-hidden relative">
+        {/* Mobile Sidebar Toggle Button (Visible when no active policy or in chat header) */}
+        {!activePolicy && (
+          <div className="md:hidden p-4 border-b border-neutral-100 flex items-center justify-between shrink-0 bg-white sticky top-0 z-10">
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-2 -ml-2 text-neutral-500 hover:bg-neutral-100 rounded-lg flex items-center gap-2"
+            >
+              <Menu size={20} />
+              <span className="text-sm font-medium">Policy History</span>
+            </button>
+          </div>
+        )}
         {!activePolicy ? (
           <div className="flex-1 flex flex-col items-center justify-center p-6 md:p-10 overflow-y-auto">
             <motion.div 
@@ -140,7 +193,7 @@ export default function Home() {
                 </p>
               </div>
 
-              <UploadDropzone onSuccess={handleUploadSuccess} />
+              <UploadDropzone ref={fileInputRef} onSuccess={handleUploadSuccess} />
             </motion.div>
           </div>
         ) : (
@@ -150,14 +203,22 @@ export default function Home() {
             animate={{ opacity: 1, scale: 1 }}
             className="flex-1 overflow-hidden flex flex-col"
           >
-            <div className="md:hidden p-4 border-b border-neutral-100 flex items-center justify-between shrink-0">
-               <button 
-                  onClick={() => setActivePolicy(null)}
-                  className="text-sm text-brand-600 font-medium hover:underline"
-               >
-                  &larr; Back to uploads
-               </button>
-               <span className="text-sm font-medium truncate max-w-[200px]">{activePolicy.name}</span>
+            <div className="md:hidden p-4 border-b border-neutral-100 flex items-center justify-between shrink-0 bg-white">
+               <div className="flex items-center gap-2">
+                 <button 
+                    onClick={() => setIsSidebarOpen(true)}
+                    className="p-1.5 text-neutral-500 hover:bg-neutral-100 rounded-lg"
+                 >
+                    <Menu size={18} />
+                 </button>
+                 <button 
+                    onClick={() => setActivePolicy(null)}
+                    className="text-xs text-brand-600 font-medium hover:underline"
+                 >
+                    &larr; Back
+                 </button>
+               </div>
+               <span className="text-sm font-medium truncate max-w-[150px]">{activePolicy.name}</span>
             </div>
             {/* Embedded Chat Interface, but without the border since it's already wrapped if desired.
                 Actually ChatInterface has its own border, let's keep it. */}

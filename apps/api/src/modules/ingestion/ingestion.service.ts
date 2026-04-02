@@ -50,47 +50,47 @@ export class IngestionService {
       // 2. Extract text using pdf-parse v2 class API
       const parser = new PDFParse({ data: pdfBuffer, verbosity: 0 });
       const textResult = await parser.getText();
-      const text = textResult.text;
-      const infoResult = await parser.getInfo();
-      const pageCount = infoResult.total ?? 0;
+      const pages = textResult.pages.map(p => ({ page: p.num, text: p.text }));
+      const pageCount = textResult.total ?? 0;
 
       // Update page count early
       await this.policyService.updatePolicyStatus(policyId, PolicyStatus.PROCESSING, pageCount);
 
       // 3. Chunk text
       this.logger.log(`Chunking text for policy ${policyId}`);
-      const chunks = chunkText(text);
+      const chunks = chunkText(pages);
 
       if (chunks.length === 0) {
         throw new Error('No text chunks extracted from PDF');
       }
 
-      // 4. Generate embeddings (hitting OpenAI limit can occur if processing huge arrays sequentially, batching recommended)
-      // Since it's a test task, we process sequentially or in tiny batches to be safe without rate limits
+      // 4. Generate embeddings
       this.logger.log(`Generating embeddings for ${chunks.length} chunks...`);
 
       const BATCH_SIZE = 10;
       for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
         const batchChunks = chunks.slice(i, i + BATCH_SIZE);
+        const batchContents = batchChunks.map(c => c.content);
 
-        // Parallel generate for the batch
-        const embeddings = await this.embeddingService.generateEmbedding(batchChunks);
+        // Parallel generate for the batch contents
+        const embeddings = await this.embeddingService.generateEmbedding(batchContents);
 
-        // 5. Store chunks and vector embeddings synchronously inside the batch
+        // 5. Store chunks and vector embeddings
         for (let j = 0; j < batchChunks.length; j++) {
-          const chunkContent = batchChunks[j];
+          const chunk = batchChunks[j];
           const embeddingVector = embeddings[j];
 
-          if (!embeddingVector) continue; // safety check
+          if (!embeddingVector) continue;
 
           const chunkIndex = i + j;
-          const tokenCount = Math.ceil(chunkContent.length / 4);
+          const tokenCount = Math.ceil(chunk.content.length / 4);
 
-          // Save chunk metadata to DB
+          // Save chunk metadata to DB with page number
           const createdChunk = await this.prisma.chunk.create({
             data: {
               policyId,
-              content: chunkContent,
+              content: chunk.content,
+              page: chunk.page,
               chunkIndex,
               tokenCount,
             }

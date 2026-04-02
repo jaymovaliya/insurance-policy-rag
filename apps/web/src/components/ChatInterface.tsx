@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { api } from '@/lib/api';
-import { Send, User, Bot, Loader2, Info } from 'lucide-react';
+import { Send, User, Bot, Loader2, Info, X, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Message {
@@ -21,6 +21,7 @@ export function ChatInterface({ policyId, fileName }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [selectedSource, setSelectedSource] = useState<NonNullable<Message['sources']>[number] | null>(null);
 
   // Load from API on mount or policyId change
   useEffect(() => {
@@ -161,13 +162,20 @@ export function ChatInterface({ policyId, fileName }: ChatInterfaceProps) {
                     </div>
                     <div className="flex flex-col gap-2">
                       {msg.sources.slice(0, 3).map((source, idx) => (
-                        <div key={idx} className="bg-white border border-neutral-200 rounded-lg p-3 text-xs shadow-sm">
-                          <div className="font-medium text-brand-600 mb-1">
-                            Page {source.page || '?'} {source.section && `• ${source.section}`}
-                            <span className="text-neutral-400 font-normal ml-2">Match: {(source.similarity * 100).toFixed(1)}%</span>
+                        <button
+                          key={idx}
+                          onClick={() => setSelectedSource(source)}
+                          className="bg-white border border-neutral-200 rounded-lg p-3 text-xs shadow-sm hover:border-brand-300 hover:shadow-md transition-all text-left group"
+                        >
+                          <div className="flex justify-between items-start mb-1">
+                            <div className="font-medium text-brand-600">
+                              Page {source.page || '?'} {source.section && `• ${source.section}`}
+                              <span className="text-neutral-400 font-normal ml-2">Match: {(source.similarity * 100).toFixed(1)}%</span>
+                            </div>
+                            <ExternalLink size={10} className="text-neutral-300 group-hover:text-brand-400" />
                           </div>
                           <p className="text-neutral-600 line-clamp-2 italic">&quot;{source.content}&quot;</p>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -195,9 +203,9 @@ export function ChatInterface({ policyId, fileName }: ChatInterfaceProps) {
       <div className="p-4 bg-white border-t border-neutral-100">
         <form 
           onSubmit={(e) => { e.preventDefault(); handleSend(); }}
-          className="relative max-w-4xl mx-auto flex items-end gap-2"
+          className="relative max-w-4xl mx-auto flex items-center gap-3"
         >
-          <div className="relative flex-1">
+          <div className="flex-1 flex items-center bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-1.5 focus-within:ring-2 focus-within:ring-brand-500/20 focus-within:border-brand-500 transition-all min-h-[56px]">
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -208,7 +216,7 @@ export function ChatInterface({ policyId, fileName }: ChatInterfaceProps) {
                 }
               }}
               placeholder="Ask a question about the policy..."
-              className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 resize-none min-h-[52px] max-h-[160px]"
+              className="flex-1 bg-transparent border-none focus:outline-none focus:ring-0 resize-none py-2 text-sm max-h-[160px] leading-relaxed"
               rows={1}
             />
           </div>
@@ -216,7 +224,7 @@ export function ChatInterface({ policyId, fileName }: ChatInterfaceProps) {
             type="button"
             onClick={handleSend}
             disabled={!input.trim() || isTyping}
-            className="shrink-0 h-[52px] px-5 bg-brand-600 text-white rounded-xl hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center font-medium shadow-sm"
+            className="shrink-0 h-14 px-6 bg-brand-600 text-white rounded-2xl hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center font-medium shadow-sm transition-all active:scale-[0.98]"
           >
             <Send size={18} className="mr-2" />
             Send
@@ -226,6 +234,58 @@ export function ChatInterface({ policyId, fileName }: ChatInterfaceProps) {
           Insurance Policy AI can make mistakes. Verify critical coverage details.
         </p>
       </div>
+
+      {/* Source Detail Modal */}
+      <AnimatePresence>
+        {selectedSource && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl shadow-xl border border-neutral-200 w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden"
+            >
+              <div className="p-4 border-b border-neutral-100 flex items-center justify-between bg-neutral-50">
+                <div>
+                  <h3 className="font-semibold text-neutral-900">Source Context</h3>
+                  <div className="text-xs text-neutral-500 flex gap-2 items-center mt-1">
+                    <span className="px-2 py-0.5 bg-brand-50 text-brand-700 rounded-md font-medium">Page {selectedSource.page || '?'}</span>
+                    <span>•</span>
+                    <span>Match Probability: {(selectedSource.similarity * 100).toFixed(1)}%</span>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setSelectedSource(null)}
+                  className="p-2 hover:bg-neutral-200 rounded-full transition-colors text-neutral-500"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="flex-1 p-6 overflow-y-auto">
+                <div className="bg-neutral-50 rounded-xl p-5 border border-neutral-100">
+                  <p className="text-neutral-800 text-sm leading-relaxed whitespace-pre-wrap italic">
+                    &quot;{selectedSource.content}&quot;
+                  </p>
+                </div>
+                {selectedSource.section && (
+                  <div className="mt-4">
+                    <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">Section</h4>
+                    <p className="text-sm text-neutral-700 font-medium">{selectedSource.section}</p>
+                  </div>
+                )}
+              </div>
+              <div className="p-4 border-t border-neutral-100 flex justify-end bg-neutral-50">
+                <button
+                  onClick={() => setSelectedSource(null)}
+                  className="px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
